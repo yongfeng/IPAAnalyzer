@@ -1,0 +1,156 @@
+﻿<Window x:Class="IPAAnalyzer.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStartupLocation="CenterScreen"
+        DataContext="{Binding RelativeSource={RelativeSource Self}}"
+        Title="IPA Organizer" Height="320" Width="600" MinHeight="320" MinWidth="525">
+    <Window.Template>
+        <ControlTemplate TargetType="Window">
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FFDBEAF9" Offset="0"/>
+                        <GradientStop Color="#FFFFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <ContentPresenter Content="{TemplateBinding Window.Content}" ContentTemplate="{TemplateBinding Window.ContentTemplate}"/>
+            </Border>
+        </ControlTemplate>
+    </Window.Template>
+    <Window.Resources>
+        <Style TargetType="Separator" BasedOn="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}">
+            <Setter Property="Margin" Value="2,0" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+        </Grid.RowDefinitions>
+
+        <Grid Margin="12" Grid.ColumnSpan="2">
+            <Grid.RowDefinitions>
+                <RowDefinition></RowDefinition>
+                <RowDefinition></RowDefinition>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"></ColumnDefinition>
+                <ColumnDefinition></ColumnDefinition>
+                <ColumnDefinition Width="80"></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Height="23" HorizontalAlignment="Left" Text="Source Directory" FontWeight="Bold"  VerticalAlignment="Top" />
+            <TextBox Grid.Row="0" Grid.Column="1" Height="23" HorizontalAlignment="Stretch"  Name="TextBoxSrcDir" Text="{Binding SourceDir}" VerticalAlignment="Top" />
+            <Button Grid.Row="0" Grid.Column="2" Content="Change" Height="23" Margin="10,0,0,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="61" Click="ChangeSourceButton_Click" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Height="23" HorizontalAlignment="Left" Margin="0,10,0,0" FontWeight="Bold" Text="Destination Directory" VerticalAlignment="Top" />
+            <TextBox Grid.Row="1" Grid.Column="1"  Height="23" Name="TextBoxDstDir" Text="{Binding DestinationDir}" Margin="0,10,0,0" VerticalAlignment="Top"  HorizontalAlignment="Stretch" />
+            <Button  Grid.Row="1" Grid.Column="2"  Content="Change" Height="23" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="61" Click="ChangeDestinationButton_Click" />
+        </Grid>
+        <Grid  Grid.Row="1" Margin="12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel  Grid.Column="0" Name="StackPanelProgress" VerticalAlignment="Center">
+                <ProgressBar Name="ProgressBarRun"  Height="10" HorizontalAlignment="Stretch"/>
+                <TextBlock Name="TextBlockStatus" HorizontalAlignment="Stretch" FontSize="11"></TextBlock>
+            </StackPanel>
+
+            <Button Grid.Column="1" Content="Analyze" Height="30"  Margin="12,0,0,0" Name="ButtonAnalyze" VerticalAlignment="Top" HorizontalAlignment="Right" Width="75"
+                    FontSize="14" FontWeight="ExtraBold" Foreground="Blue" Click="ButtonAnalyze_Click" />
+            <Button Grid.Column="2" Content="Move" Height="30"  Margin="12,0,0,0" Name="ButtonMove" VerticalAlignment="Top" HorizontalAlignment="Right" Width="75"
+                    FontSize="14" FontWeight="ExtraBold" Foreground="Purple" Click="ButtonMove_Click" IsEnabled="{Binding Analyzed}" />
+            <Button Grid.Column="3" Content="Copy" Height="30"  Margin="12,0,0,0" Name="ButtonCopy" VerticalAlignment="Top" HorizontalAlignment="Right" Width="75"
+                    FontSize="14" FontWeight="ExtraBold" Foreground="Green" Click="ButtonCopy_Click" IsEnabled="{Binding Analyzed}" />
+        </Grid>
+        <ListView Grid.Row="2" Margin="12,12,12,0" Name="ListViewOutput" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                  SelectedItem="{Binding SelectedPackageInfo}" Grid.ColumnSpan="2">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="DisplayName" DisplayMemberBinding="{Binding DisplayName}"  />
+                    <GridViewColumn Header="PayloadName" DisplayMemberBinding="{Binding PayloadName}" />
+                    <GridViewColumn Header="Identifier" DisplayMemberBinding="{Binding Identifier}" />
+                    <GridViewColumn Header="ShortVersion" DisplayMemberBinding="{Binding ShortVersion}" />
+                    <GridViewColumn Header="Version" DisplayMemberBinding="{Binding Version}" />
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" />
+                    <GridViewColumn Header="Excutbale" DisplayMemberBinding="{Binding Excutbale}" />
+                    <GridViewColumn Header="Min.Ver." DisplayMemberBinding="{Binding MinimumOsVersion}" />
+                    <GridViewColumn Header="AppType" DisplayMemberBinding="{Binding AppType}" />
+                    <GridViewColumn Header="ItunesId" DisplayMemberBinding="{Binding ItunesId}" />
+                    <GridViewColumn Header="RecommendedFileName" DisplayMemberBinding="{Binding RecommendedFileName}" />
+                    <GridViewColumn Header="OriginalFile" DisplayMemberBinding="{Binding OriginalFile}"  />
+                </GridView>
+            </ListView.View>
+            <ListView.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding ShowPackageInfo}"/>
+                <KeyBinding Key="l" Command="{Binding ShowPackageInfo}"/>
+                <KeyBinding Key="i" Command="{Binding ShowItunesDetail}"/>
+                <KeyBinding Key="j" Command="{Binding MoveDown}"/>
+                <KeyBinding Key="k" Command="{Binding MoveUp}"/>
+                <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowPackageInfo}"/>
+            </ListView.InputBindings>
+            <!--
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <EventSetter Event="MouseDoubleClick" Handler="ListViewOutput_MouseDoubleClick" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            -->
+            <ListView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Show Package Details (i / Enter)" Command="{Binding ShowPackageInfo}"></MenuItem>
+                    <MenuItem Header="Itunes Online Details (o)" Command="{Binding ShowItunesDetail}"></MenuItem>
+                    <MenuItem Header="Move focus down" Command="{Binding MoveDown}"></MenuItem>
+                    <MenuItem Header="Move focus up" Command="{Binding MoveUp}"></MenuItem>
+                </ContextMenu>
+            </ListView.ContextMenu>
+        </ListView>
+        <RichTextBox Grid.Row="3" Margin="12, 6, 12, 6" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0">
+            <FlowDocument >
+                <Paragraph Margin="0" Padding="0">
+                    <Bold>Shortcut Key</Bold>
+                    <Span FontFamily="Courier New" FontSize="14" FontWeight="Bold" Foreground="Blue">j</Span>: move down
+                    <Span FontFamily="Courier New" FontSize="14" FontWeight="Bold" Foreground="Blue">k</Span>: move up
+                    <Span FontFamily="Courier New" FontSize="14" FontWeight="Bold" Foreground="Blue">i</Span>: view iTunes details
+                    <Span FontFamily="Courier New" FontSize="14" FontWeight="Bold" Foreground="Blue">l</Span> /
+                    <Span FontFamily="Courier New" FontSize="14" FontWeight="Bold" Foreground="Blue">Enter</Span>: view packae detail
+                </Paragraph>
+            </FlowDocument>
+        </RichTextBox>
+        <StatusBar Grid.Row="4" HorizontalAlignment="Stretch" Height="23" Grid.ColumnSpan="2">
+            <Grid HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0"  Orientation="Horizontal">
+                    <Label Padding="0" Margin="0,0,5,0">Total:</Label>
+                    <TextBlock Name="TextBlockStatusTotal" Text="{Binding TotalFilesCount}"></TextBlock>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Separator/>
+                    <Label Padding="0" Margin="0,0,5,0">Analyzed:</Label>
+                    <TextBlock Name="TextBlockStatusAnalyzed" Text="{Binding AnalyzedCount}"></TextBlock>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Separator/>
+                    <Label Padding="0" Margin="0,0,5,0">Transfered:</Label>
+                    <TextBlock Name="TextBlockStatusTransfered"></TextBlock>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <Separator/>
+                    <TextBlock Name="TextBlockGlobalStatus" HorizontalAlignment="Stretch"></TextBlock>
+                </StackPanel>
+            </Grid>
+        </StatusBar>
+    </Grid>
+</Window>
