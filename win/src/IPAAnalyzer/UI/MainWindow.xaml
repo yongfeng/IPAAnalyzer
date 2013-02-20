@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStartupLocation="CenterScreen"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
-        Title="IPA Organizer" Height="320" Width="600" MinHeight="320" MinWidth="525">
+        Title="IPA Analyzer" Height="320" Width="600" MinHeight="320" MinWidth="525">
     <Window.Template>
         <ControlTemplate TargetType="Window">
             <Border>
@@ -105,10 +105,8 @@
             -->
             <ListView.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Show Package Details (i / Enter)" Command="{Binding ShowPackageInfo}"></MenuItem>
-                    <MenuItem Header="Itunes Online Details (o)" Command="{Binding ShowItunesDetail}"></MenuItem>
-                    <MenuItem Header="Move focus down" Command="{Binding MoveDown}"></MenuItem>
-                    <MenuItem Header="Move focus up" Command="{Binding MoveUp}"></MenuItem>
+                    <MenuItem Header="Show Package Details" InputGestureText="l / Enter" Command="{Binding ShowPackageInfo}"></MenuItem>
+                    <MenuItem Header="Itunes Online Details" InputGestureText="i"  Command="{Binding ShowItunesDetail}"></MenuItem>
                 </ContextMenu>
             </ListView.ContextMenu>
         </ListView>

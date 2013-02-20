@@ -1,14 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using Ionic.Zip;
-using System.IO;
-using PlistCS;
-using System.Text.RegularExpressions;
 using IPAAnalyzer.Domain;
-using System.Net;
-using System.Web.Script.Serialization;
+using Newtonsoft.Json;
+using PlistCS;
 
 namespace IPAAnalyzer.Service
 {
@@ -46,20 +44,19 @@ namespace IPAAnalyzer.Service
         public const string APP_TYPE_IPHONE = "iphone";
         public const string APP_TYPE_IPAD = "ipad";
 
-        private JavaScriptSerializer javascriptSerializer = new JavaScriptSerializer();
-        
         public PackageInfo GetPackageInfo(string ipaFilePath)
         {
             string payloadName;
             PackageInfo packageInfo = null;
 
-            using (ZipFile zip = ZipFile.Read(ipaFilePath)) {
+            using (ZipFile zip = ZipFile.Read(ipaFilePath, new ReadOptions {Encoding = Encoding.UTF8})) {
                 ZipEntry infoPlistZipEntry = zip.Entries.Where(e => e.FileName.EndsWith(@".app/Info.plist")).FirstOrDefault();
 
                 // Info.plist
                 if (infoPlistZipEntry != null) {
                     // zipentry filename example: "Payload/GoodReaderIPad.app/Info.plist"
                     payloadName = infoPlistZipEntry.FileName.Substring(8, infoPlistZipEntry.FileName.IndexOf(@".app/Info.plist") - 8);
+                    //payloadName = infoPlistZipEntry.FileName;
                     
                     using (var ms = new MemoryStream()) {
                         infoPlistZipEntry.Extract(ms);
@@ -123,7 +120,7 @@ namespace IPAAnalyzer.Service
                 HttpWebResponse response = (HttpWebResponse)request.GetResponse();
                 using (StreamReader sr = new StreamReader(response.GetResponseStream())) {
                     string jsonData = sr.ReadToEnd();
-                    ItunesSearchResult searchResults = javascriptSerializer.Deserialize<ItunesSearchResult>(jsonData);
+                    ItunesSearchResult searchResults = JsonConvert.DeserializeObject<ItunesSearchResult>(jsonData);
                     if (searchResults.resultCount > 0) {
                         return searchResults.results[0];
                     }
