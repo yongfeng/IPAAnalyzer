@@ -275,7 +275,9 @@ namespace PlistCS
 
                 if (result != null)
                 {
-                    dict.Add(keynode.InnerText, result);
+                    //dict.Add(keynode.InnerText, result);
+                    // FIX - yongfeng
+                    dict[keynode.InnerText] = result;
                 }
             }
 

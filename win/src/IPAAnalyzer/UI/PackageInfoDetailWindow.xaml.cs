@@ -37,6 +37,8 @@ namespace IPAAnalyzer.UI
 
             TextBlockTitle.Text = packageInfo.RecommendedFileName;
             ListViewOutput.ItemsSource = dataList;
+
+            ListViewOutput.Focus();
         }
 
         private void OnCloseCmdExecuted(object sender, ExecutedRoutedEventArgs e)

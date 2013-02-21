@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using IPAAnalyzer.Domain;
 using IPAAnalyzer.Service;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace IPAAnalyzer.UI
 {
@@ -39,24 +41,74 @@ namespace IPAAnalyzer.UI
             }
         }
 
+        public ICommand DeleteIPAFile
+        {
+            get { return new DelegateCommand(this.OnDeleteIPAFile); }
+        }
+
+        public ICommand ShowItunesDetail
+        {
+            get { return new DelegateCommand(this.OnShowItunesDetail); }
+        }
+
         public ICommand ShowPackageInfo
         {
             get { return new DelegateCommand(this.OnShowPackageInfo); }
         }
 
-        private void OnShowPackageInfo()
+        public ICommand MoveUp
         {
-            if (_selectedPackageInfo != null) {
-                //MessageBox.Show(_selectedPackageInfo.ToString());
-                PackageInfoDetailWindow detailWindow = new PackageInfoDetailWindow(_selectedPackageInfo);
-                detailWindow.Owner = App.Current.MainWindow;
-                detailWindow.ShowDialog();
-            }
+            get { return new DelegateCommand(this.OnMoveUp); }
         }
 
         public ICommand MoveDown
         {
             get { return new DelegateCommand(this.OnMoveDown); }
+        }
+
+        private void OnDeleteIPAFile()
+        {
+            if (_listView.SelectedItems != null && _listView.SelectedItems.Count > 0) {
+                MessageBoxResult result;
+                if (_listView.SelectedItems.Count == 1) {
+                    result = MessageBox.Show(
+                        "Are sure you want to delete the file: " + _selectedPackageInfo.OriginalFile + "?",
+                        "Delete File Confirmation",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+                }
+                else {
+                    result = MessageBox.Show(
+                        "Are sure you want to delete all selected files?",
+                        "Delete File Confirmation",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+                }
+
+                if (result == MessageBoxResult.Yes) {
+                    int currentIndex = _listView.SelectedIndex;
+
+                    IList<PackageInfo> list = new List<PackageInfo>();
+                    foreach (PackageInfo pkgInfo in _listView.SelectedItems) {
+                        list.Add(pkgInfo);
+                    }
+                    foreach (PackageInfo item in list) {
+                        System.IO.File.Delete(item.OriginalFile);
+                        _listView.Items.Remove(item);
+                    }
+
+                    if (_listView.Items.Count > 0) {
+                        if (currentIndex < _listView.Items.Count) {
+                            _listView.SelectedIndex = currentIndex;
+                            EndMove();
+                        }
+                        else if (currentIndex == _listView.Items.Count) {
+                            _listView.SelectedIndex = currentIndex - 1;
+                            EndMove();
+                        }
+                    }
+                }
+            }
         }
 
         private void OnMoveDown()
@@ -68,10 +120,6 @@ namespace IPAAnalyzer.UI
             }
         }
 
-        public ICommand MoveUp
-        {
-            get { return new DelegateCommand(this.OnMoveUp); }
-        }
 
         private void OnMoveUp()
         {
@@ -91,12 +139,18 @@ namespace IPAAnalyzer.UI
             _listView.ScrollIntoView(_selectedPackageInfo);
         }
 
-        public ICommand ShowItunesDetail
+
+        private void OnShowPackageInfo()
         {
-            get { return new DelegateCommand(this.OnShowItunesDetail); }
+            if (_selectedPackageInfo != null) {
+                //MessageBox.Show(_selectedPackageInfo.ToString());
+                PackageInfoDetailWindow detailWindow = new PackageInfoDetailWindow(_selectedPackageInfo);
+                detailWindow.Owner = App.Current.MainWindow;
+                detailWindow.ShowDialog();
+            }
         }
 
-        private void OnShowItunesDetail()
+        internal void OnShowItunesDetail()
         {
             if (_selectedPackageInfo != null) {
                 if (_selectedPackageInfo.ItunesId > 0) {

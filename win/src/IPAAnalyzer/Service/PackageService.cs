@@ -7,11 +7,14 @@ using Ionic.Zip;
 using IPAAnalyzer.Domain;
 using Newtonsoft.Json;
 using PlistCS;
+using System;
 
 namespace IPAAnalyzer.Service
 {
     public class PackageService
     {
+        public const string CACHE_DIR = @"./cache";
+
         public static PackageService Instance = new PackageService();
 
         // Singleton
@@ -31,6 +34,10 @@ namespace IPAAnalyzer.Service
         public const string BUNDLE_MININUM_OS_VERSION = "MinimumOSVersion";
         public const string BUNDLE_SHORT_VERSION_STRING = "CFBundleShortVersionString";
         public const string UI_DEVICE_FAMILY = "UIDeviceFamily";
+        public const string BUNDLE_ICON_FILES = "CFBundleIconFiles";
+        public const string BUNDLE_ICONS = "CFBundleIcons";
+        public const string BUNDLE_PRIMARY_ICON = "CFBundlePrimaryIcon";
+
 
         // Key in iTunesMetadata.plist
         public const string METADATA_ITEM_ID = "itemId";
@@ -49,51 +56,18 @@ namespace IPAAnalyzer.Service
             string payloadName;
             PackageInfo packageInfo = null;
 
-            using (ZipFile zip = ZipFile.Read(ipaFilePath, new ReadOptions {Encoding = Encoding.UTF8})) {
-                ZipEntry infoPlistZipEntry = zip.Entries.Where(e => e.FileName.EndsWith(@".app/Info.plist")).FirstOrDefault();
+            try {
+                using (ZipFile zip = ZipFile.Read(ipaFilePath, new ReadOptions { Encoding = Encoding.UTF8 })) {
+                    ZipEntry infoPlistZipEntry = zip.Entries.Where(e => e.FileName.EndsWith(@".app/Info.plist")).FirstOrDefault();
 
-                // Info.plist
-                if (infoPlistZipEntry != null) {
-                    // zipentry filename example: "Payload/GoodReaderIPad.app/Info.plist"
-                    payloadName = infoPlistZipEntry.FileName.Substring(8, infoPlistZipEntry.FileName.IndexOf(@".app/Info.plist") - 8);
-                    //payloadName = infoPlistZipEntry.FileName;
-                    
-                    using (var ms = new MemoryStream()) {
-                        infoPlistZipEntry.Extract(ms);
+                    // Info.plist
+                    if (infoPlistZipEntry != null) {
+                        // zipentry filename example: "Payload/GoodReaderIPad.app/Info.plist"
+                        payloadName = infoPlistZipEntry.FileName.Substring(8, infoPlistZipEntry.FileName.IndexOf(@".app/Info.plist") - 8);
+                        //payloadName = infoPlistZipEntry.FileName;
 
-                        ms.Seek(0, SeekOrigin.Begin);
-                        plistType plType = Plist.getPlistType(ms);
-
-                        ms.Seek(0, SeekOrigin.Begin);
-                        object results = Plist.readPlist(ms, plType);
-
-                        if (results != null) {
-                            Dictionary<string, object> dict = results as Dictionary<string, object>;
-
-                            packageInfo = new PackageInfo
-                            {
-                                OriginalFile = ipaFilePath,
-                                DisplayName = ReadPropertyAsString(dict, BUNDLE_DISPLAY_NAME),
-                                PayloadName = payloadName,
-                                Identifier = ReadPropertyAsString(dict, BUNDLE_IDENTIFIER),
-                                ShortVersion = ReadPropertyAsString(dict, BUNDLE_SHORT_VERSION_STRING),
-                                Version = ReadPropertyAsString(dict, BUNDLE_VERSION),
-                                Name = ReadPropertyAsString(dict, BUNDLE_NAME),
-                                Excutbale = ReadPropertyAsString(dict, BUNDLE_EXECUTABLE),
-                                MinimumOsVersion = ReadPropertyAsString(dict, BUNDLE_MININUM_OS_VERSION),
-                                AppType = ReadDeviceFamily(dict)
-                            };
-                        }
-                    }
-                }
-
-                // iTunesMetadata.plist
-                if (packageInfo != null) {
-                    ZipEntry metaPlistZipEntry = zip.Entries.Where(e => e.FileName == "iTunesMetadata.plist").FirstOrDefault();
-
-                    if (metaPlistZipEntry != null) {
                         using (var ms = new MemoryStream()) {
-                            metaPlistZipEntry.Extract(ms);
+                            infoPlistZipEntry.Extract(ms);
 
                             ms.Seek(0, SeekOrigin.Begin);
                             plistType plType = Plist.getPlistType(ms);
@@ -103,10 +77,69 @@ namespace IPAAnalyzer.Service
 
                             if (results != null) {
                                 Dictionary<string, object> dict = results as Dictionary<string, object>;
-                                packageInfo.ItunesId = ReadPropertyAsInt(dict, METADATA_ITEM_ID);
+
+                                string identifier = ReadPropertyAsString(dict, BUNDLE_IDENTIFIER);
+                                
+                                // icon file
+
+
+                                packageInfo = new PackageInfo
+                                {
+                                    OriginalFile = ipaFilePath,
+                                    DisplayName = ReadPropertyAsString(dict, BUNDLE_DISPLAY_NAME),
+                                    PayloadName = payloadName,
+                                    Identifier = identifier,
+                                    ShortVersion = ReadPropertyAsString(dict, BUNDLE_SHORT_VERSION_STRING),
+                                    Version = ReadPropertyAsString(dict, BUNDLE_VERSION),
+                                    Name = ReadPropertyAsString(dict, BUNDLE_NAME),
+                                    Excutbale = ReadPropertyAsString(dict, BUNDLE_EXECUTABLE),
+                                    MinimumOsVersion = ReadPropertyAsString(dict, BUNDLE_MININUM_OS_VERSION),
+                                    AppType = ReadDeviceFamily(dict),
+                                    IsProcessed = true
+                                };
                             }
                         }
                     }
+
+                    // iTunesMetadata.plist
+                    if (packageInfo != null) {
+                        ZipEntry metaPlistZipEntry = zip.Entries.Where(e => e.FileName == "iTunesMetadata.plist").FirstOrDefault();
+
+                        try {
+                            if (metaPlistZipEntry != null) {
+                                // initialize its id to -1, even if the later processing fails to find the id,
+                                // this will indicate iTunesMetadata.plist is found and processed
+                                packageInfo.ItunesId = -1;
+                                using (var ms = new MemoryStream()) {
+                                    metaPlistZipEntry.Extract(ms);
+
+                                    ms.Seek(0, SeekOrigin.Begin);
+                                    plistType plType = Plist.getPlistType(ms);
+
+                                    ms.Seek(0, SeekOrigin.Begin);
+                                    object results = Plist.readPlist(ms, plType);
+
+                                    if (results != null) {
+                                        Dictionary<string, object> dict = results as Dictionary<string, object>;
+                                        packageInfo.ItunesId = ReadPropertyAsInt(dict, METADATA_ITEM_ID);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception e) {
+                            // TODO
+                        }
+                    }
+                }
+            }
+            catch (Exception e) {
+                if (packageInfo == null) {
+                    packageInfo = new PackageInfo
+                    {
+                        OriginalFile = ipaFilePath,
+                        IsProcessed = false,
+                        ProcessingRemarks = e.Message
+                    };
                 }
             }
 
@@ -127,6 +160,33 @@ namespace IPAAnalyzer.Service
                 }
             }
             return null;
+        }
+
+        private void CacheIcon(Dictionary<string, object> dict, ZipFile zip, string identifier)
+        {
+            if (dict.ContainsKey(BUNDLE_ICON_FILES)) {
+                List<object> iconFiles = (List<object>)dict[BUNDLE_ICON_FILES];
+                
+                if (iconFiles != null && iconFiles.Count > 0) {
+                    string bundleIconFile = (string)iconFiles[0];
+                   
+                    if (!string.IsNullOrEmpty(bundleIconFile)) {
+                        ZipEntry iconFileZipEntry = zip.Entries
+                            .Where(e => e.FileName.EndsWith(@".app/" + bundleIconFile))
+                            .FirstOrDefault();
+                        
+                        if (iconFileZipEntry != null) {
+                            string localIconFile = string.Format(@"{0}/{1}.png", CACHE_DIR, identifier);
+
+                            if (!File.Exists(localIconFile)) {
+                                using (var fs = new FileStream(localIconFile, FileMode.Create)) {
+                                    iconFileZipEntry.Extract(fs);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private string ReadPropertyAsString(Dictionary<string, object> dict, string key)
@@ -175,9 +235,10 @@ namespace IPAAnalyzer.Service
                     }
                 }
 
-                return isSupportIphone ? (isSupportIpad ? APP_TYPE_UNIVERSAL : APP_TYPE_IPHONE) : (isSupportIpad ? APP_TYPE_IPAD : string.Empty);
+                return isSupportIphone ?  (isSupportIpad ? APP_TYPE_UNIVERSAL : APP_TYPE_IPHONE) : (isSupportIpad ? APP_TYPE_IPAD : string.Empty);
             }
-            return null;
+
+            return string.Empty;
         }
     }
 }
