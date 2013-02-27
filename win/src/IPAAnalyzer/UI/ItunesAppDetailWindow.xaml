@@ -33,7 +33,20 @@
                 <ColumnDefinition Width="70"></ColumnDefinition>
                 <ColumnDefinition></ColumnDefinition>
             </Grid.ColumnDefinitions>
-            <Image Grid.Column="0" Width="60" Height="60" HorizontalAlignment="Left" Source="{Binding Path=artworkUrl60}" Stretch="Fill" VerticalAlignment="Top" />
+            <Grid Grid.Column="0">
+                <Rectangle RadiusX="10" RadiusY="10" Width="60" Height="60">
+                    <Rectangle.Fill>
+                        <ImageBrush x:Name="myImage" ImageSource="{Binding Path=artworkUrl60}"/>
+                    </Rectangle.Fill>
+                </Rectangle>
+            </Grid>
+            <!--
+            <Border Grid.Column="0" BorderBrush="#FF000000" BorderThickness="0.2" CornerRadius="8,8,8,8">
+                <Grid>
+                    <Image  Width="60" Height="60" HorizontalAlignment="Left" Source="{Binding Path=artworkUrl60}" Stretch="Fill" VerticalAlignment="Top" />
+                </Grid>
+            </Border>
+            -->
             <StackPanel Grid.Column="1">
                 <TextBox  HorizontalAlignment="Stretch" 
                           Background="Transparent"
@@ -45,7 +58,7 @@
                           VerticalAlignment="Top" IsReadOnly="True"  BorderThickness="0" />
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="60"></ColumnDefinition>
+                        <ColumnDefinition Width="80"></ColumnDefinition>
                         <ColumnDefinition Width="60"></ColumnDefinition>
                         <ColumnDefinition></ColumnDefinition>
                         <ColumnDefinition Width="auto"></ColumnDefinition>

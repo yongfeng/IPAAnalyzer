@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.Windows.Media;
 
 namespace IPAAnalyzer.UI
 {
@@ -83,6 +84,29 @@ namespace IPAAnalyzer.UI
             }
         }
 
+        private bool _isAnalyzing = false;
+        public bool IsAnalyzing
+        {
+            get
+            {
+                return _isAnalyzing;
+            }
+            set
+            {
+                _isAnalyzing = value;
+                NotifyPropertyChanged("IsAnalyzing");
+                NotifyPropertyChanged("IsNotAnalyzing");
+            }
+        }
+
+        public bool IsNotAnalyzing
+        {
+            get
+            {
+                return !_isAnalyzing;
+            }
+        }
+
         private string _srcDir;
         public string SourceDir
         {
@@ -140,10 +164,67 @@ namespace IPAAnalyzer.UI
                 NotifyPropertyChanged("AppVersion");
             }
         }
+
+        private int _appTypeCountUniversal;
+        public int AppTypeCountUniversal
+        {
+            get
+            {
+                return _appTypeCountUniversal;
+            }
+            set
+            {
+                _appTypeCountUniversal = value;
+                NotifyPropertyChanged("AppTypeCountUniversal");
+            }
+        }
+
+        private int _appTypeCountIphone;
+        public int AppTypeCountIphone
+        {
+            get
+            {
+                return _appTypeCountIphone;
+            }
+            set
+            {
+                _appTypeCountIphone = value;
+                NotifyPropertyChanged("AppTypeCountIphone");
+            }
+        }
+
+
+        private int _appTypeCountIpad;
+        public int AppTypeCountIpad
+        {
+            get
+            {
+                return _appTypeCountIpad;
+            }
+            set
+            {
+                _appTypeCountIpad = value;
+                NotifyPropertyChanged("AppTypeCountIpad");
+            }
+        }
+
+
+        private int _appTypeCountUnknown;
+        public int AppTypeCountUnknown
+        {
+            get
+            {
+                return _appTypeCountUnknown;
+            }
+            set
+            {
+                _appTypeCountUnknown = value;
+                NotifyPropertyChanged("AppTypeCountUnknown");
+            }
+        }
         #endregion
 
         private bool _stopAnalyzing = false;
-        private bool _isAnalyzing = false;
 
 
         private BackgroundWorker _analyzeBgWorker = null;
@@ -169,30 +250,33 @@ namespace IPAAnalyzer.UI
         {
             InitializeComponent();
 
+            Init();
+        }
+
+
+        private void Init()
+        {
             // version
             var dllVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             AppVersion = string.Format("v{0}.{1} (r{2})", dllVersion.Major, dllVersion.Minor, dllVersion.Revision);
 
+            // Focus on the Analyze button
             ButtonAnalyze.Focus();
 
             StackPanelProgress.Visibility = Visibility.Hidden;
             _pkgInfoViewModel = new PackageInfoViewModel(ListViewOutput);
             ListViewOutput.DataContext = _pkgInfoViewModel;
 
+            // read last accessed source & destination dir from ini file
             string srcDir = _iniFile.Read(INI_DIR_KEY_DESTIANTION, INI_DIR_KEY_SOURCE);
             string dstDir = _iniFile.Read(INI_DIR_KEY_DESTIANTION, INI_DIR_KEY_DESTIANTION);
+
             if (!string.IsNullOrEmpty(srcDir)) {
                 SourceDir = srcDir;
             }
 
             if (!string.IsNullOrEmpty(dstDir)) {
                 DestinationDir = dstDir;
-            }
-
-
-            // create cache dir if not available
-            if (!Directory.Exists(PackageService.CACHE_DIR)) {
-                Directory.CreateDirectory(PackageService.CACHE_DIR);
             }
         }
 
@@ -201,6 +285,11 @@ namespace IPAAnalyzer.UI
             TextBlockStatus.Text = "Start processing...";
             StackPanelProgress.Visibility = Visibility.Visible;
             ProgressBarRun.Value = 0;
+        }
+
+
+        private void ResetAnalyze()
+        {
         }
 
         #region BackgroundWorker - Analyze
@@ -222,8 +311,22 @@ namespace IPAAnalyzer.UI
                 else if (objType == typeof(PackageInfo)) {
                     PackageInfo pkgInfo = e.UserState as PackageInfo;
                     TextBlockStatus.Text = "Analyzed " + pkgInfo.OriginalFile.Substring(pkgInfo.OriginalFile.LastIndexOf('\\') + 1);
+                    if (pkgInfo.AppType == PackageService.APP_TYPE_UNIVERSAL) {
+                        AppTypeCountUniversal++;
+                    }
+                    else if (pkgInfo.AppType == PackageService.APP_TYPE_IPHONE)
+                    {
+                        AppTypeCountIphone++;
+                    }
+                    else if (pkgInfo.AppType == PackageService.APP_TYPE_IPAD)
+                    {
+                        AppTypeCountIpad++;
+                    }
+                    else if (pkgInfo.AppType == PackageService.APP_TYPE_UNKNOWN)
+                    {
+                        AppTypeCountUnknown++;
+                    }
                     ListViewOutput.Items.Insert(0, pkgInfo);
-                    AnalyzedCount++;
                 }
             }
         }
@@ -234,9 +337,10 @@ namespace IPAAnalyzer.UI
             StackPanelProgress.Visibility = Visibility.Hidden;
 
             //this.Cursor = System.Windows.Input.Cursors.Arrow;
-            _isAnalyzing = false;
+            IsAnalyzing = false;
             _stopAnalyzing = false;
             ButtonAnalyze.Content = "Analyze";
+            ButtonAnalyze.FontSize = 14;
             ListViewOutput.Focus();
 
             TextBlockGlobalStatus.Text = "Analyzed";
@@ -263,13 +367,24 @@ namespace IPAAnalyzer.UI
             StackPanelProgress.Visibility = Visibility.Hidden;
         }
         #endregion
-
         private void Analyze()
         {
             SimpleFileLogger logger = GetAnalyzeLogger();
 
+            // create cache dir if not available
+            if (Directory.Exists(PackageService.CACHE_DIR)) {
+                Directory.Delete(PackageService.CACHE_DIR, true);
+            }
+            Directory.CreateDirectory(PackageService.CACHE_DIR);
+
             AnalyzedCount = 0;
+            AppTypeCountUniversal = 0;
+            AppTypeCountIphone = 0;
+            AppTypeCountIpad = 0;
+            AppTypeCountUnknown = 0;
+
             Analyzed = false;
+
             string[] ipaFiles = Directory.GetFiles(SourceDir, "*.ipa", IsSourceDirRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 
             TotalFilesCount = ipaFiles.Count();
@@ -388,8 +503,6 @@ namespace IPAAnalyzer.UI
                 return false;
             }
 
-
-
             return true;
         }
 
@@ -397,12 +510,13 @@ namespace IPAAnalyzer.UI
         {
 
             if (ValidateInputs()) {
-                ResetUI();
-                if (!_isAnalyzing) {
-                    TextBlockGlobalStatus.Text = "Analyzing";
+                if (!IsAnalyzing) {
+                    ResetUI();
+                    TextBlockGlobalStatus.Text = "Analyzing...";
 
-                    _isAnalyzing = true;
-                    ButtonAnalyze.Content = "Stop";
+                    IsAnalyzing = true;
+                    ButtonAnalyze.Content = "Stop\nAnalyzing";
+                    ButtonAnalyze.FontSize = 12;
 
                     ListViewOutput.Items.Clear();
                     //this.Cursor = System.Windows.Input.Cursors.Wait;
@@ -416,10 +530,8 @@ namespace IPAAnalyzer.UI
                 }
                 else {
                     _stopAnalyzing = true;
-                    TextBlockStatus.Text = "Stopping";
                     ButtonAnalyze.Content = "Stopping";
-
-                    TextBlockGlobalStatus.Text = "Stopping";
+                    TextBlockGlobalStatus.Text = "Stopping...";
                 }
             }
         }
@@ -524,6 +636,77 @@ namespace IPAAnalyzer.UI
             }
         }
 
+        // Drag & Drop for source dir
+        private void TextBoxSrcDir_PreviewDragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.Copy;
+        }
+
+        private void TextBoxSrcDir_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+        }
+
+        private void TextBoxSrcDir_PreviewDrop(object sender, DragEventArgs e)
+        {
+            if (TextBoxSrcDir.IsEnabled) {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop, true)) {
+                    string[] droppedFilePaths = e.Data.GetData(DataFormats.FileDrop, true) as string[];
+
+                    foreach (string file in droppedFilePaths) {
+                        if (Directory.Exists(file)) {
+                            SourceDir = file;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Drag & Drop for destination dir
+        private void TextBoxDstDir_PreviewDragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.Link;
+        }
+
+        private void TextBoxDstDir_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+        }
+
+        private void TextBoxDstDir_PreviewDrop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop, true)) {
+                string[] droppedFilePaths = e.Data.GetData(DataFormats.FileDrop, true) as string[];
+
+                foreach (string file in droppedFilePaths) {
+                    if (Directory.Exists(file)) {
+                        DestinationDir = file;
+                    }
+                }
+            }
+        }
+
+        // Drag & Drop for windown
+        private void Window_PreviewDragEnter(object sender, DragEventArgs e)
+        {
+            TextBoxSrcDir_PreviewDragEnter(sender, e);
+        }
+
+        private void Window_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            TextBoxSrcDir_PreviewDragOver(sender, e);
+
+        }
+
+        private void Window_PreviewDrop(object sender, DragEventArgs e)
+        {
+            if (e.Source != TextBoxDstDir) {
+                TextBoxSrcDir_PreviewDrop(sender, e);
+            }
+        }
+
+
+
         private void ListViewOutput_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             _pkgInfoViewModel.OnShowItunesDetail();
@@ -532,12 +715,14 @@ namespace IPAAnalyzer.UI
         private GridViewColumn _lastColumnSorted;
         private void ListViewOutput_OnColumnHeaderClick(object sender, RoutedEventArgs e)
         {
-            GridViewColumn column = ((GridViewColumnHeader)e.OriginalSource).Column;
-            if (_lastColumnSorted != null) {
-                _lastColumnSorted.HeaderTemplate = null;
+            if (e.OriginalSource is GridViewColumnHeader) {
+                GridViewColumn column = ((GridViewColumnHeader)e.OriginalSource).Column;
+                if (_lastColumnSorted != null) {
+                    _lastColumnSorted.HeaderTemplate = null;
+                }
+                SortDescriptionCollection sorts = ListViewOutput.Items.SortDescriptions;
+                RenderSort(sorts, column, GetSortDirection(sorts, column));
             }
-            SortDescriptionCollection sorts = ListViewOutput.Items.SortDescriptions;
-            RenderSort(sorts, column, GetSortDirection(sorts, column));
         }
 
         private ListSortDirection GetSortDirection(SortDescriptionCollection sorts, GridViewColumn column)
@@ -561,10 +746,11 @@ namespace IPAAnalyzer.UI
         }
         #endregion
 
-        
+
 
     }
 
+    #region IValueConverter
     public class ProcessStatusImageConverter : IValueConverter
     {
         private BitmapImage _yes = new BitmapImage(new Uri(@"pack://application:,,,/Images/tick.png", UriKind.RelativeOrAbsolute));
@@ -584,7 +770,7 @@ namespace IPAAnalyzer.UI
         {
             throw new NotImplementedException();
         }
-    };
+    }
 
 
     public class IconImageConverter : IValueConverter
@@ -592,7 +778,13 @@ namespace IPAAnalyzer.UI
         public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
             if (value != null && value is string) {
-                string iconFile = string.Format(@"{0}/{1}.png", PackageService.CACHE_DIR, value);
+                //string iconFile = string.Format(@"{0}\{1}.png", PackageService.CACHE_DIR, value);
+                //string iconFile = string.Format(@"{0}\{1}_artwork.png", PackageService.CACHE_DIR, value);
+                string iconFile = string.Format(@"{0}\{1}_artwork_small.png", PackageService.CACHE_DIR, value);
+                if (!File.Exists(iconFile)) {
+                    iconFile = string.Format(@"{0}\{1}.png", PackageService.CACHE_DIR, value);
+                }
+
                 if (File.Exists(iconFile)) {
                     BitmapImage image = new BitmapImage();
 
@@ -618,5 +810,6 @@ namespace IPAAnalyzer.UI
         {
             throw new NotImplementedException();
         }
-    };
+    }
+    #endregion
 }

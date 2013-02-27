@@ -8,12 +8,15 @@ using IPAAnalyzer.Domain;
 using Newtonsoft.Json;
 using PlistCS;
 using System;
+using IPAAnalyzer.Util;
+using System.Drawing;
 
 namespace IPAAnalyzer.Service
 {
     public class PackageService
     {
-        public const string CACHE_DIR = @"./cache";
+        public const string CACHE_DIR = @".\cache";
+        public const int THUMBNAIL_SIZE = 32;
 
         public static PackageService Instance = new PackageService();
 
@@ -50,6 +53,7 @@ namespace IPAAnalyzer.Service
         public const string APP_TYPE_UNIVERSAL = "universal";
         public const string APP_TYPE_IPHONE = "iphone";
         public const string APP_TYPE_IPAD = "ipad";
+        public const string APP_TYPE_UNKNOWN = "unknown";
 
         public PackageInfo GetPackageInfo(string ipaFilePath)
         {
@@ -79,9 +83,9 @@ namespace IPAAnalyzer.Service
                                 Dictionary<string, object> dict = results as Dictionary<string, object>;
 
                                 string identifier = ReadPropertyAsString(dict, BUNDLE_IDENTIFIER);
-                                
-                                // icon file
 
+                                // icon file
+                                CacheIcon(dict, zip, identifier);
 
                                 packageInfo = new PackageInfo
                                 {
@@ -101,12 +105,11 @@ namespace IPAAnalyzer.Service
                         }
                     }
 
-                    // iTunesMetadata.plist
                     if (packageInfo != null) {
+                        // iTunesMetadata.plist
                         ZipEntry metaPlistZipEntry = zip.Entries.Where(e => e.FileName == "iTunesMetadata.plist").FirstOrDefault();
-
-                        try {
-                            if (metaPlistZipEntry != null) {
+                        if (metaPlistZipEntry != null) {
+                            try {
                                 // initialize its id to -1, even if the later processing fails to find the id,
                                 // this will indicate iTunesMetadata.plist is found and processed
                                 packageInfo.ItunesId = -1;
@@ -125,10 +128,40 @@ namespace IPAAnalyzer.Service
                                     }
                                 }
                             }
+                            catch (Exception e) {
+                                // TODO
+                            }
                         }
-                        catch (Exception e) {
-                            // TODO
+
+
+                        // iTunesArtwork
+                        ZipEntry itunesArtworkZipEntry = zip.Entries.Where(e => e.FileName == "iTunesArtwork").FirstOrDefault();
+                        if (itunesArtworkZipEntry != null) {
+                            try {
+                                string localArtworkFile = string.Format(@"{0}\{1}_artwork.png", CACHE_DIR, packageInfo.Identifier);
+                                string localArtworkFileSmall = string.Format(@"{0}\{1}_artwork_small.png", CACHE_DIR, packageInfo.Identifier);
+                                if (!File.Exists(localArtworkFile)) {
+                                    using (var fs = new FileStream(localArtworkFile, FileMode.Create)) {
+                                        itunesArtworkZipEntry.Extract(fs);
+                                    }
+
+                                    using (var source = Image.FromFile(localArtworkFile)) {
+                                        var bmp = new Bitmap(THUMBNAIL_SIZE, THUMBNAIL_SIZE);
+                                        using (var g = Graphics.FromImage(bmp)) {
+                                            g.DrawImage(source, new Rectangle(0, 0, THUMBNAIL_SIZE, THUMBNAIL_SIZE));
+                                            g.Save();
+                                        }
+                                        bmp.Save(localArtworkFileSmall);
+                                    }
+
+                                    //PNGConvertor.Convert(localIconFile);
+                                }
+                            }
+                            catch (Exception e) {
+                                // TODO
+                            }
                         }
+
                     }
                 }
             }
@@ -166,22 +199,23 @@ namespace IPAAnalyzer.Service
         {
             if (dict.ContainsKey(BUNDLE_ICON_FILES)) {
                 List<object> iconFiles = (List<object>)dict[BUNDLE_ICON_FILES];
-                
+
                 if (iconFiles != null && iconFiles.Count > 0) {
                     string bundleIconFile = (string)iconFiles[0];
-                   
+
                     if (!string.IsNullOrEmpty(bundleIconFile)) {
                         ZipEntry iconFileZipEntry = zip.Entries
                             .Where(e => e.FileName.EndsWith(@".app/" + bundleIconFile))
                             .FirstOrDefault();
-                        
+
                         if (iconFileZipEntry != null) {
-                            string localIconFile = string.Format(@"{0}/{1}.png", CACHE_DIR, identifier);
+                            string localIconFile = string.Format(@"{0}\{1}.png", CACHE_DIR, identifier);
 
                             if (!File.Exists(localIconFile)) {
                                 using (var fs = new FileStream(localIconFile, FileMode.Create)) {
                                     iconFileZipEntry.Extract(fs);
                                 }
+                                //PNGConvertor.Convert(localIconFile);
                             }
                         }
                     }
@@ -235,10 +269,25 @@ namespace IPAAnalyzer.Service
                     }
                 }
 
-                return isSupportIphone ?  (isSupportIpad ? APP_TYPE_UNIVERSAL : APP_TYPE_IPHONE) : (isSupportIpad ? APP_TYPE_IPAD : string.Empty);
+                return isSupportIphone ? (isSupportIpad ? APP_TYPE_UNIVERSAL : APP_TYPE_IPHONE) : (isSupportIpad ? APP_TYPE_IPAD : APP_TYPE_UNKNOWN);
+            }
+            else {
+                string minVer = ReadPropertyAsString(dict, BUNDLE_MININUM_OS_VERSION);
+                if (!string.IsNullOrEmpty(minVer)) {
+                    string[] versions = minVer.Split('.');
+                    if (versions.Length >= 2) {
+                        int majorVer;
+                        int minorVer;
+                        if (int.TryParse(versions[0], out majorVer) && int.TryParse(versions[1], out minorVer)) {
+                            if (majorVer < 3 || (majorVer == 3 && minorVer < 2)) {
+                                return APP_TYPE_IPHONE;
+                            }
+                        }
+                    }
+                }
             }
 
-            return string.Empty;
+            return APP_TYPE_UNKNOWN;
         }
     }
 }
